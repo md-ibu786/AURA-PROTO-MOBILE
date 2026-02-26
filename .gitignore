@@ -1,47 +1,33 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
 # Dependencies
-node_modules
+node_modules/
 
-# Build output
-dist
-dist-ssr
-build
+# Expo
+.expo/
+dist/
+web-build/
 
-# Environment variables (contains secrets)
+# Native builds
+android/
+ios/
+*.apk
+*.ipa
+
+# Env secrets
 .env
-.env.local
-.env.*.local
+!.env.example
 
-# Local dev files
-*.local
-errors.txt
-build_output.txt
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# OS files
+# OS
 .DS_Store
 Thumbs.db
-Desktop.ini
 
-# Service worker generated caches
-sw-precache-manifest.*
-
-# TypeScript build info
+# TypeScript
 *.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp

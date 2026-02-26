@@ -1,13 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-    signInWithEmailAndPassword,
-    signOut,
-    onAuthStateChanged,
-    type User,
-} from 'firebase/auth';
+import firebase from '../config/firebase';
 import { auth } from '../config/firebase';
 
-interface UserProfile {
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8001';
+
+export interface UserProfile {
     uid: string;
     email: string;
     displayName: string | null;
@@ -15,17 +12,14 @@ interface UserProfile {
     status: string;
     departmentId: string | null;
     subjectIds: string[];
-    departmentNames?: string[];
 }
 
 interface AuthState {
-    user: User | null;
+    user: firebase.User | null;
     profile: UserProfile | null;
     loading: boolean;
     error: string | null;
 }
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export function useAuth() {
     const [state, setState] = useState<AuthState>({
@@ -35,8 +29,7 @@ export function useAuth() {
         error: null,
     });
 
-    // Sync user profile with backend
-    const syncUser = useCallback(async (user: User) => {
+    const syncUser = useCallback(async (user: firebase.User): Promise<UserProfile | null> => {
         try {
             const token = await user.getIdToken();
             const res = await fetch(`${API_URL}/api/auth/sync`, {
@@ -47,27 +40,23 @@ export function useAuth() {
                 },
                 body: JSON.stringify({}),
             });
-
-            if (!res.ok) {
-                throw new Error('Failed to sync user profile');
-            }
-
+            if (!res.ok) return null;
             const data = await res.json();
             return data.user as UserProfile;
         } catch {
+            // Network unavailable — return null, auth state still set from Firebase cache
             return null;
         }
     }, []);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        const unsubscribe = auth.onAuthStateChanged(async (user) => {
             if (user) {
                 const profile = await syncUser(user);
                 if (profile && (profile.role === 'staff' || profile.role === 'admin')) {
                     setState({ user, profile, loading: false, error: null });
                 } else if (profile) {
-                    // Not a staff/admin user
-                    await signOut(auth);
+                    await auth.signOut();
                     setState({
                         user: null,
                         profile: null,
@@ -75,45 +64,36 @@ export function useAuth() {
                         error: 'Access denied. Only staff members can use this app.',
                     });
                 } else {
-                    setState({
-                        user,
-                        profile: null,
-                        loading: false,
-                        error: 'Failed to load user profile.',
-                    });
+                    // Offline: allow in with no profile (they can still record)
+                    setState({ user, profile: null, loading: false, error: null });
                 }
             } else {
                 setState({ user: null, profile: null, loading: false, error: null });
             }
         });
-
         return () => unsubscribe();
     }, [syncUser]);
 
     const login = async (email: string, password: string) => {
         setState((prev) => ({ ...prev, loading: true, error: null }));
         try {
-            await signInWithEmailAndPassword(auth, email, password);
-            // onAuthStateChanged will handle the rest
+            await auth.signInWithEmailAndPassword(email, password);
         } catch (err: unknown) {
-            const message =
-                err instanceof Error ? err.message : 'Login failed';
-            let friendlyMessage = message;
+            const message = err instanceof Error ? err.message : 'Login failed';
+            let friendly = message;
             if (message.includes('user-not-found') || message.includes('wrong-password') || message.includes('invalid-credential')) {
-                friendlyMessage = 'Invalid email or password.';
+                friendly = 'Invalid email or password.';
             } else if (message.includes('too-many-requests')) {
-                friendlyMessage = 'Too many attempts. Please try again later.';
+                friendly = 'Too many attempts. Please try again later.';
+            } else if (message.includes('network')) {
+                friendly = 'No internet connection. Please check your network.';
             }
-            setState((prev) => ({
-                ...prev,
-                loading: false,
-                error: friendlyMessage,
-            }));
+            setState((prev) => ({ ...prev, loading: false, error: friendly }));
         }
     };
 
     const logout = async () => {
-        await signOut(auth);
+        await auth.signOut();
         setState({ user: null, profile: null, loading: false, error: null });
     };
 
@@ -122,6 +102,7 @@ export function useAuth() {
         profile: state.profile,
         loading: state.loading,
         error: state.error,
+        isAuthenticated: !!state.user,
         login,
         logout,
     };
