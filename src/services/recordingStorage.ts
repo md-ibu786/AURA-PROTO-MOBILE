@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { generateUUID } from '../utils/uuid';
+import { exportRecordingToFolder } from './exportService';
 
 const STORAGE_KEY = 'aura_recordings';
 const RECORDINGS_DIR = `${FileSystem.documentDirectory}aura_recordings/`;
@@ -77,6 +78,11 @@ export async function saveRecording(
     const all = await getAllRecordings();
     all.unshift(recording); // newest first
     await saveAll(all);
+
+    // Auto-export to user's "Lecture Recordings" folder (if configured)
+    const exportFileName = `${(title.trim() || 'Untitled Lecture').replace(/[/\\:*?"<>|]/g, '_')} - ${new Date().toISOString().slice(0, 10)}.${ext}`;
+    exportRecordingToFolder(filePath, exportFileName).catch(() => { });
+
     return recording;
 }
 

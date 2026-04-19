@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
+import { ThemeProvider } from '../hooks/useTheme';
 import LoginScreen from '../screens/LoginScreen';
 import RecorderScreen from '../screens/RecorderScreen';
 import { Colors } from '../theme';
@@ -26,31 +27,33 @@ export default function AppNavigator() {
     }
 
     return (
-        <NavigationContainer>
-            <Stack.Navigator screenOptions={{ headerShown: false }}>
-                {!isAuthenticated ? (
-                    <Stack.Screen name="Login">
-                        {() => (
-                            <LoginScreen
-                                onLogin={login}
-                                loading={loading}
-                                error={error}
-                            />
-                        )}
-                    </Stack.Screen>
-                ) : (
-                    <Stack.Screen name="Recorder">
-                        {() => (
-                            <RecorderScreen
-                                user={user!}
-                                displayName={profile?.displayName || user?.displayName || user?.email || 'Staff'}
-                                onLogout={logout}
-                            />
-                        )}
-                    </Stack.Screen>
-                )}
-            </Stack.Navigator>
-        </NavigationContainer>
+        <ThemeProvider>
+            <NavigationContainer>
+                <Stack.Navigator screenOptions={{ headerShown: false }}>
+                    {!isAuthenticated ? (
+                        <Stack.Screen name="Login">
+                            {() => (
+                                <LoginScreen
+                                    onLogin={login}
+                                    loading={loading}
+                                    error={error}
+                                />
+                            )}
+                        </Stack.Screen>
+                    ) : (
+                        <Stack.Screen name="Recorder">
+                            {() => (
+                                <RecorderScreen
+                                    user={user!}
+                                    displayName={profile?.displayName || user?.displayName || user?.email || 'Staff'}
+                                    onLogout={logout}
+                                />
+                            )}
+                        </Stack.Screen>
+                    )}
+                </Stack.Navigator>
+            </NavigationContainer>
+        </ThemeProvider>
     );
 }
 

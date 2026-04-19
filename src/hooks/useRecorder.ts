@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
-import { useAudioRecorder, AudioModule, RecordingOptions, RecordingPresets } from 'expo-audio';
+import { useCallback, useEffect, useState, useRef } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
+import { useAudioRecorder, AudioModule, RecordingPresets } from 'expo-audio';
 
 export type RecorderState = 'idle' | 'recording' | 'paused' | 'stopped';
 
@@ -9,7 +10,18 @@ export interface RecordingResult {
     mimeType: string;
 }
 
-export function useRecorder() {
+export interface UseRecorderReturn {
+    state: RecorderState;
+    durationMs: number;
+    error: string | null;
+    start: () => Promise<void>;
+    pause: () => Promise<void>;
+    resume: () => Promise<void>;
+    stop: () => Promise<RecordingResult | null>;
+    reset: () => void;
+}
+
+export function useRecorder(onInterrupted?: (result: RecordingResult) => void): UseRecorderReturn {
     const [state, setState] = useState<RecorderState>('idle');
     const [durationMs, setDurationMs] = useState(0);
     const [error, setError] = useState<string | null>(null);
@@ -103,6 +115,38 @@ export function useRecorder() {
         setError(null);
         pausedDurationRef.current = 0;
     }, []);
+
+    // AppState listener to handle interruptions (phone call, app background)
+    const onInterruptedRef = useRef(onInterrupted);
+    useEffect(() => {
+        onInterruptedRef.current = onInterrupted;
+    }, [onInterrupted]);
+
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', async (nextState: AppStateStatus) => {
+            if ((nextState === 'background' || nextState === 'inactive') && state === 'recording') {
+                // Auto-stop the recording to finalize the audio file
+                try {
+                    stopTimer();
+                    await recorder.stop();
+                    const uri = recorder.uri;
+                    const totalMs = pausedDurationRef.current + (Date.now() - startTimeRef.current);
+
+                    setState('stopped');
+                    setDurationMs(totalMs);
+
+                    if (onInterruptedRef.current && uri) {
+                        onInterruptedRef.current({ uri, durationMs: totalMs, mimeType: 'audio/m4a' });
+                    }
+                } catch (e) {
+                    setError(e instanceof Error ? e.message : 'Recording interrupted unsuccessfully');
+                    reset();
+                }
+            }
+        });
+
+        return () => subscription.remove();
+    }, [state, recorder, stopTimer, reset]);
 
     return { state, durationMs, error, start, pause, resume, stop, reset };
 }

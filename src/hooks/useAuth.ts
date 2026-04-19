@@ -50,7 +50,14 @@ export function useAuth() {
     }, []);
 
     useEffect(() => {
+        // Safety timeout: Firebase onAuthStateChanged may never fire in some Expo/RN environments
+        const timeout = setTimeout(() => {
+            console.warn('[useAuth] Firebase onAuthStateChanged timeout after 10s, treating as offline');
+            setState((prev) => ({ ...prev, loading: false, error: 'Firebase unavailable offline. Please check your internet connection and try again.' }));
+        }, 10000);
+
         const unsubscribe = auth.onAuthStateChanged(async (user) => {
+            clearTimeout(timeout);
             if (user) {
                 const profile = await syncUser(user);
                 if (profile && (profile.role === 'staff' || profile.role === 'admin')) {
@@ -71,7 +78,10 @@ export function useAuth() {
                 setState({ user: null, profile: null, loading: false, error: null });
             }
         });
-        return () => unsubscribe();
+        return () => {
+            unsubscribe();
+            clearTimeout(timeout);
+        };
     }, [syncUser]);
 
     const login = async (email: string, password: string) => {

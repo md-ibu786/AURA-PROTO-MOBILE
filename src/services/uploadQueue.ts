@@ -20,13 +20,13 @@ export async function uploadRecording(
     }
 
     const formData = new FormData();
-    formData.append('audio_file', {
+    formData.append('file', {
         uri: filePath,
         name: 'recording.m4a',
-        type: 'audio/m4a',
+        type: 'audio/mp4',
     } as unknown as Blob);
-    formData.append('title', title);
-    if (moduleId) formData.append('module_id', moduleId);
+    formData.append('topic', title);
+    if (moduleId) formData.append('moduleId', moduleId);
 
     const res = await fetch(`${API_URL}/api/audio/process-pipeline`, {
         method: 'POST',
